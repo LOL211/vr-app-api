@@ -28,7 +28,7 @@ app.use(bodyParser.json())
 
 const getDetails = async(idtoken)=>{
     let r; 
-    r = fetch("https://vr-app.fly.dev/home",
+    r = await fetch("https://vr-app.fly.dev/home",
      {
          method:"POST",
          headers: {
@@ -43,8 +43,13 @@ const getDetails = async(idtoken)=>{
          )
      });
    
+     let td = new TextDecoder();
+     let rd = r['body'].getReader();
+     let belongs =  td.decode((await rd.read()).value);
    
-    return r;
+  
+    return JSON.parse(belongs);
+  
 }
 
 const login = async (email, password) =>{
@@ -54,7 +59,8 @@ const login = async (email, password) =>{
     let user = response['user'];
     
     idtoken = await user.getIdToken();
-    let name = await getDetails(idtoken).name;
+    let name = await getDetails(idtoken);
+    console.log(name);
 
   return [idtoken, name ];
 }
@@ -87,7 +93,7 @@ const getToken = async(idtoken)=> {
 
 app.post("/auth", async (req, res) =>{
     
-    console.log(req.body["email"])
+ 
   let response = await login(req.body["email"], req.body["password"]);
 
     
@@ -96,7 +102,8 @@ app.post("/auth", async (req, res) =>{
     let obj = new Object();
     obj.IdToken = response[0];
     obj.name = response[1];
-    console.log(response);
+    obj.name.courses = JSON.parse(obj.name.courses);
+    console.log(obj);
     res.status=200
     res.end(JSON.stringify(obj));
 })
