@@ -4,6 +4,8 @@ const app = express();
 const port = 3000;
 const firebase = require("firebase/app");
 const auth = require("firebase/auth");
+const db = require("firebase/firestore")
+const storage = require("firebase/storage")
 const firebaseConfig = {
     apiKey: "AIzaSyCpefYz7bDeQkV1evWvFpuEADfNPvsuABU",
     authDomain: "vr-application-29195.firebaseapp.com",
@@ -21,31 +23,100 @@ const firebaseConfig = {
 const firebaseapp = firebase.initializeApp(firebaseConfig);
 const myauth =auth.getAuth(firebaseapp);
 
+const mystorage = storage.getStorage(firebaseapp);
 app.use(bodyParser.json())
 
+const getDetails = async(idtoken)=>{
+    let r; 
+    r = fetch("https://vr-app.fly.dev/home",
+     {
+         method:"POST",
+         headers: {
+         'Accept':"*/*",
+         'Content-Type':"application/json",
+         'Access-Control-Allow-Origin': '*'
+         },
+         body:JSON.stringify(
+         {"requestType":"HOME",
+             "idToken": idtoken
+         }
+         )
+     });
+   
+   
+    return r;
+}
 
 const login = async (email, password) =>{
 
     let idtoken = null;
     let response = await auth.signInWithEmailAndPassword(myauth, email,password);
     let user = response['user'];
+    
     idtoken = await user.getIdToken();
-  return idtoken;
+    let name = await getDetails(idtoken).name;
+
+  return [idtoken, name ];
 }
 
-
+const getToken = async(idtoken)=> {
+    let r; 
+  
+   r = await fetch("https://vr-app.fly.dev/token",
+    {
+        method:"POST",
+        headers: {
+        'Accept':"*/*",
+        'Content-Type':"application/json",
+        'Access-Control-Allow-Origin': '*'
+        },
+        body:JSON.stringify(
+        {"requestType":"TEACHER",
+            "idToken": idtoken
+        }
+        )
+    });
+    let td = new TextDecoder();
+    let rd = r['body'].getReader();
+    let belongs =  td.decode((await rd.read()).value);
+  
+  
+   return belongs;
+  }
 
 
 app.post("/auth", async (req, res) =>{
     
     console.log(req.body["email"])
-   let token = await login(req.body["email"], req.body["password"]);
+  let response = await login(req.body["email"], req.body["password"]);
+
+    
+
+
     let obj = new Object();
-    obj.IdToken = token;
-    console.log(token);
+    obj.IdToken = response[0];
+    obj.name = response[1];
+    console.log(response);
     res.status=200
     res.end(JSON.stringify(obj));
 })
+
+app.post("/file", async (req, res)=>{
+    let classname = req.body['class'];
+    let idtoken = req.body['IdToken'];
+    let t = await getToken(idtoken);
+
+    await auth.signInWithCustomToken(myauth, t);
+    let list = []
+
+    const listref = storage.ref(mystorage, '/'+classname);
+   await storage.listAll(listref).then(res=>{
+        res.items.forEach((itemRef) => {
+            list.push(itemRef.name);
+        });
+    }).catch(err=>{ console.log(err)});
+res.end(JSON.stringify(list));
+});
 
 
 
