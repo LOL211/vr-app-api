@@ -1,10 +1,10 @@
 const express= require('express');
 const bodyParser = require('body-parser')
 const app = express();
-const port = 3000;
+const port = 8080;
 const firebase = require("firebase/app");
 const auth = require("firebase/auth");
-const db = require("firebase/firestore")
+
 const storage = require("firebase/storage")
 const firebaseConfig = {
     apiKey: "AIzaSyCpefYz7bDeQkV1evWvFpuEADfNPvsuABU",
@@ -17,7 +17,7 @@ const firebaseConfig = {
   };
 
 
-// require("firebase/database");
+
 
 
 const firebaseapp = firebase.initializeApp(firebaseConfig);
@@ -92,17 +92,13 @@ const getToken = async(idtoken)=> {
 
 
 app.post("/auth", async (req, res) =>{
+   
     
- 
-  let response = await login(req.body["email"], req.body["password"]);
-
-    
-
-
+    let response =  await login(req.body["email"], req.body["password"]);
     let obj = new Object();
     obj.IdToken = response[0];
-    obj.name = response[1];
-    obj.name.courses = JSON.parse(obj.name.courses);
+    obj.courses = response[1];
+    obj.courses.courses = JSON.parse(obj.courses.courses);
     console.log(obj);
     res.status=200
     res.end(JSON.stringify(obj));
@@ -116,21 +112,17 @@ app.post("/file", async (req, res)=>{
     await auth.signInWithCustomToken(myauth, t);
     let list = []
 
-    const listref = storage.ref(mystorage, '/'+classname);
-   await storage.listAll(listref).then(res=>{
-        res.items.forEach((itemRef) => {
-            list.push(itemRef.name);
-        });
-    }).catch(err=>{ console.log(err)});
-res.end(JSON.stringify(list));
+    const listref = storage.ref(mystorage, '/CS2204/EE4221 L1 Cloud Concepts Overview.pdf');
+    let bytes = await storage.getBytes(listref);
+//    await storage.listAll(listref).then(res=>{
+//         res.items.forEach((itemRef) => {
+//             list.push(itemRef.name);
+//         });
+//     }).catch(err=>{ console.log(err)});
+res.set("Content-Type", 'application/octet-stream')
+res.end(Buffer.from(bytes));
+
 });
-
-
-
-
-
-
-
 
 
 
