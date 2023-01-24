@@ -55,14 +55,21 @@ const getDetails = async(idtoken)=>{
 const login = async (email, password) =>{
 
     let idtoken = null;
-    let response = await auth.signInWithEmailAndPassword(myauth, email,password);
+    let name = null;
+   await auth.signInWithEmailAndPassword(myauth, email,password).then(async response=>{
     let user = response['user'];
     
     idtoken = await user.getIdToken();
-    let name = await getDetails(idtoken);
-    console.log(name);
+   name = await getDetails(idtoken);
+   
+   }).catch(
+        err=>{
+           console.log("did not find user"); 
+        }
+    );
+   
 
-  return [idtoken, name ];
+  return [idtoken, name];
 }
 
 const getToken = async(idtoken)=> {
@@ -93,52 +100,81 @@ const getToken = async(idtoken)=> {
 
 app.post("/auth", async (req, res) =>{
     let response =  await login(req.body["email"], req.body["password"]);
-    let obj = new Object();
-    obj.IdToken = response[0];
-    obj.courses = response[1];
-    obj.courses.courses = JSON.parse(obj.courses.courses);
-    console.log(obj);
-    res.status=200
-    res.end(JSON.stringify(obj));
-})
 
-app.post("/file/list", async (req, res)=>{
+    if(response[0]===null)
+    {
+        res.status(404);
+  
+        res.end("Did not find user");
+    }
+    else{
+   
+        let obj = new Object();
+        obj.IdToken = response[0];
+        obj.courses = response[1];
+        obj.courses.courses = JSON.parse(obj.courses.courses);
+        console.log(obj);
+        res.status(200);
+      
+        res.end(JSON.stringify(obj));
+    }
+    
+});
+
+app.post("/filelist", async (req, res)=>{
     let classname = req.body['class'];
     let idtoken = req.body['IdToken'];
     let t = await getToken(idtoken);
 
-    await auth.signInWithCustomToken(myauth, t);
-    let list = []
+    await auth.signInWithCustomToken(myauth, t).then(async ()=>{
+        let list = []
 
-    const listref = storage.ref(mystorage, '/'+classname);
-   
-   await storage.listAll(listref).then(res=>{
-        res.items.forEach((itemRef) => {
-            list.push(itemRef.name);
-        });
-    }).catch(err=>{ console.log(err)});
-res.set("Content-Type", 'application/json')  
-
-res.end(JSON.stringify(list));
+        const listref = storage.ref(mystorage, '/'+classname);
+       
+       await storage.listAll(listref).then(res=>{
+            res.items.forEach((itemRef) => {
+                list.push(itemRef.name);
+            });
+        }).catch(err=>{ console.log(err)});
+    res.set("Content-Type", 'application/json')  
+    res.status(200);
+    res.end(JSON.stringify(list));
+    }).catch(err=>{
+        res.status(404);
+        res.end("Invalid user");
+    });
+    
 });
 
 
-app.post("/file/download", async (req, res)=>{
+app.post("/filedownload", async (req, res)=>{
     let file = req.body['file'];
     let idtoken = req.body['IdToken'];
+    console.log("sdfsdfsdf");
     let t = await getToken(idtoken);
 
     await auth.signInWithCustomToken(myauth, t);
-
+file = file.trim();
     const listref = storage.ref(mystorage, '/'+file);
+console.log(file);
 
     let bytes = await storage.getBytes(listref)
    
-await storage.getMetadata(listref).then(metadata=>{
+storage.getMetadata(listref).then(metadata=>{
     res.set("Content-Type", metadata.contentType );  
+    console.log(metadata.contentType);
+}).then(
+    ()=>{
+        res.status(200)
+res.end(Buffer.from(bytes));
+    }
+).catch(err=>{
+    res.status( 404);
+    res.end("error");
+    
 })
 
-res.end(Buffer.from(bytes));
+
 });
 
 
