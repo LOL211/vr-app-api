@@ -4,7 +4,7 @@ const app = express();
 const port = 8080;
 const firebase = require("firebase/app");
 const auth = require("firebase/auth");
-
+const fs = require('fs');
 const storage = require("firebase/storage")
 const firebaseConfig = {
     apiKey: "AIzaSyCpefYz7bDeQkV1evWvFpuEADfNPvsuABU",
@@ -92,8 +92,6 @@ const getToken = async(idtoken)=> {
 
 
 app.post("/auth", async (req, res) =>{
-   
-    
     let response =  await login(req.body["email"], req.body["password"]);
     let obj = new Object();
     obj.IdToken = response[0];
@@ -104,7 +102,7 @@ app.post("/auth", async (req, res) =>{
     res.end(JSON.stringify(obj));
 })
 
-app.post("/file", async (req, res)=>{
+app.post("/file/list", async (req, res)=>{
     let classname = req.body['class'];
     let idtoken = req.body['IdToken'];
     let t = await getToken(idtoken);
@@ -112,21 +110,36 @@ app.post("/file", async (req, res)=>{
     await auth.signInWithCustomToken(myauth, t);
     let list = []
 
-    const listref = storage.ref(mystorage, '/CS2204/EE4221 L1 Cloud Concepts Overview.pdf');
-    let bytes = await storage.getBytes(listref);
-//    await storage.listAll(listref).then(res=>{
-//         res.items.forEach((itemRef) => {
-//             list.push(itemRef.name);
-//         });
-//     }).catch(err=>{ console.log(err)});
-res.set("Content-Type", 'application/octet-stream')
-res.end(Buffer.from(bytes));
+    const listref = storage.ref(mystorage, '/'+classname);
+   
+   await storage.listAll(listref).then(res=>{
+        res.items.forEach((itemRef) => {
+            list.push(itemRef.name);
+        });
+    }).catch(err=>{ console.log(err)});
+res.set("Content-Type", 'application/json')  
 
+res.end(JSON.stringify(list));
 });
 
 
+app.post("/file/download", async (req, res)=>{
+    let file = req.body['file'];
+    let idtoken = req.body['IdToken'];
+    let t = await getToken(idtoken);
 
+    await auth.signInWithCustomToken(myauth, t);
 
+    const listref = storage.ref(mystorage, '/'+file);
+    //let bytes = await storage.getBytes(listref);
+    let url = await storage.getBytes(listref)
+   
+await storage.getMetadata(listref).then(metadata=>{
+    res.set("Content-Type", metadata.contentType );  
+})
+
+res.end(Buffer.from(url));
+});
 
 
 
