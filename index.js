@@ -131,14 +131,14 @@ app.post("/file/download", async (req, res)=>{
     await auth.signInWithCustomToken(myauth, t);
 
     const listref = storage.ref(mystorage, '/'+file);
-    //let bytes = await storage.getBytes(listref);
-    let url = await storage.getBytes(listref)
+
+    let bytes = await storage.getBytes(listref)
    
 await storage.getMetadata(listref).then(metadata=>{
     res.set("Content-Type", metadata.contentType );  
 })
 
-res.end(Buffer.from(url));
+res.end(Buffer.from(bytes));
 });
 
 
