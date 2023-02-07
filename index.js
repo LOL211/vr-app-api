@@ -111,9 +111,9 @@ app.post("/auth", async (req, res) =>{
    
         let obj = new Object();
         obj.IdToken = response[0];
-        obj.courses = response[1];
-        obj.courses.courses = JSON.parse(obj.courses.courses);
-        console.log(obj);
+        obj.CourseList = response[1];
+        obj.CourseList.courses = JSON.parse(obj.CourseList.courses);
+        console.log(JSON.stringify(obj));
         res.status(200);
       
         res.end(JSON.stringify(obj));
@@ -138,7 +138,9 @@ app.post("/filelist", async (req, res)=>{
         }).catch(err=>{ console.log(err)});
     res.set("Content-Type", 'application/json')  
     res.status(200);
-    res.end(JSON.stringify(list));
+    let obj = new Object();
+    obj.list = list;
+    res.end(JSON.stringify(obj));
     }).catch(err=>{
         res.status(404);
         res.end("Invalid user");
@@ -158,25 +160,50 @@ file = file.trim();
     const listref = storage.ref(mystorage, '/'+file);
 console.log(file);
 
-    let bytes = await storage.getBytes(listref)
+    //let bytes = await storage.getBytes(listref)
    
-storage.getMetadata(listref).then(metadata=>{
-    res.set("Content-Type", metadata.contentType );  
-    console.log(metadata.contentType);
-}).then(
-    ()=>{
-        res.status(200)
-res.end(Buffer.from(bytes));
-    }
-).catch(err=>{
-    res.status( 404);
-    res.end("error");
-    
-})
-
-
+   storage.getDownloadURL(listref).then(url => {
+    storage.getMetadata(listref).then(
+        response=>{
+            res.status(200);
+            let obj = new Object();
+            obj.url = url;
+            obj.type = response.contentType;
+            res.end(JSON.stringify(obj));
+        })}
+   ).catch(err=>{
+        res.status( 404);
+        res.end("error");
+    });
 });
 
+app.post("/filedownloadtest", async (req, res)=>{
+    let file = req.body['file'];
+    let idtoken = req.body['IdToken'];
+    console.log("sdfsdfsdf");
+    let t = await getToken(idtoken);
+
+    await auth.signInWithCustomToken(myauth, t);
+file = file.trim();
+    const listref = storage.ref(mystorage, '/'+file);
+console.log(file);
+
+    let bytes = await storage.getBytes(listref)
+   
+   storage.getDownloadURL(listref).then(url => {
+    storage.getMetadata(listref).then(
+        response=>{
+            res.status(200);
+            let obj = new Object();
+            obj.url = url;
+            obj.type = response.contentType;
+            res.end(JSON.stringify(obj));
+        })}
+   ).catch(err=>{
+        res.status( 404);
+        res.end("error");
+    });
+});
 
 
 app.listen(port, () => {
