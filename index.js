@@ -5,7 +5,10 @@ const port = 8080;
 const firebase = require("firebase/app");
 const auth = require("firebase/auth");
 const fs = require('fs');
-const storage = require("firebase/storage")
+const storage = require("firebase/storage");
+const pdf = require("pdf-to-png-converter");
+const mergeImages = require('merge-images');
+const { Canvas, Image } = require('canvas');
 const firebaseConfig = {
     apiKey: "AIzaSyCpefYz7bDeQkV1evWvFpuEADfNPvsuABU",
     authDomain: "vr-application-29195.firebaseapp.com",
@@ -19,7 +22,72 @@ const firebaseConfig = {
 
 
 
+  async function convertPDFtoPNG(pdfPath) {
+    pdf.pdfToPng(pdfPath,{
+        
+            disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
+            useSystemFonts: false, // When `true`, fonts that aren't embedded in the PDF document will fallback to a system font. Default value is false.
+            viewportScale: 2.0, // The desired scale of PNG viewport. Default value is 1.0.
+            outputFolder: './png', // Folder to write output PNG files. If not specified, PNG output will be available only as a Buffer content, without saving to a file.
+            outputFileMask: 'buffer', // Output filename mask. Default value is 'buffer'.
+            verbosityLevel: 0 // Verbosity level. ERRORS: 0, WARNINGS: 1, INFOS: 5. Default value is 0.
+    });
+//     let pdfArray = await pdf2pic.convert(pdfPath, {
+//         width:1920,
+//         base64:false
+//     });
 
+ 
+//   console.log("saving");
+//   let totalpages = pdfArray.length;
+// let maxpages = 10;
+// let count = 0;
+// while(totalpages>0)
+// {
+//     let myarr = []
+//     let i = 0;
+//     for (i = 0; i < Math.min(maxpages, totalpages); i++)
+//     {
+//         await fs.writeFile("./png/output"+i+".jpg", pdfArray[i], function (error) {
+//             if (error) { console.error("Error: " + error); }});
+
+//             let d = new Object();
+//             d.src = "./png/output"+i+".jpg";
+//             d.x=0;
+//             d.y=1080*i;
+//             myarr.push(d);
+
+//     }  
+//     totalpages = totalpages-i;
+//     console.log(myarr);
+    
+//     let base64Data = await mergeImages(myarr, {
+//         Canvas:Canvas,
+//         Image:Image,
+//         height:myarr.length*1080
+//     })
+
+//     const base64Image = base64Data.split(';base64,').pop();
+// // Write the  image buffer to a file
+// await fs.writeFile('out_'+count+'.png', base64Image, { encoding: 'base64' }, function(err) {
+//   if (err) throw err;
+//   console.log('The file has been saved!');
+// });
+  //im
+
+}
+  
+   
+
+   
+    // pdf2pic(pdfPath, {
+    //     format:'png',
+    //     prefix:"img",
+    //     outdir:"out"
+    // }).then(()=>console.log('conversion done'))
+    // .catch(err=>console.log(err));
+  
+ 
 const firebaseapp = firebase.initializeApp(firebaseConfig);
 const myauth =auth.getAuth(firebaseapp);
 
@@ -152,7 +220,7 @@ app.post("/filelist", async (req, res)=>{
 app.post("/filedownload", async (req, res)=>{
     let file = req.body['file'];
     let idtoken = req.body['IdToken'];
-    console.log("sdfsdfsdf");
+    
     let t = await getToken(idtoken);
 
     await auth.signInWithCustomToken(myauth, t);
@@ -162,10 +230,14 @@ app.post("/filedownload", async (req, res)=>{
 
     let bytes = await storage.getBytes(listref)
    
- storage.getMetadata(listref).then(metadata=> res.set("Content-Type", metadata.contentType))
- .then(
-        ()=>{
-            res.status(200)
+ storage.getMetadata(listref).then(async metadata=> {
+            res.set("Content-Type", metadata.contentType);
+
+            fs.writeFileSync("./"+metadata.name, Buffer.from(bytes), 'binary');
+           
+            res.status(200);
+            convertPDFtoPNG("./"+metadata.name);
+           // convertPDFtoPNG("./"+metadata.name,"./mypng.png");
             res.end(Buffer.from(bytes));
             }
     ).catch(err=>{
