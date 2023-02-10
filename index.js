@@ -7,8 +7,7 @@ const auth = require("firebase/auth");
 const fs = require('fs');
 const storage = require("firebase/storage");
 const pdf = require("pdf-to-png-converter");
-const mergeImages = require('merge-images');
-const { Canvas, Image } = require('canvas');
+const path = require("path");
 const firebaseConfig = {
     apiKey: "AIzaSyCpefYz7bDeQkV1evWvFpuEADfNPvsuABU",
     authDomain: "vr-application-29195.firebaseapp.com",
@@ -22,77 +21,13 @@ const firebaseConfig = {
 
 
 
-  async function convertPDFtoPNG(pdfPath) {
-    pdf.pdfToPng(pdfPath,{
-        
-            disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
-            useSystemFonts: false, // When `true`, fonts that aren't embedded in the PDF document will fallback to a system font. Default value is false.
-            viewportScale: 2.0, // The desired scale of PNG viewport. Default value is 1.0.
-            outputFolder: './png', // Folder to write output PNG files. If not specified, PNG output will be available only as a Buffer content, without saving to a file.
-            outputFileMask: 'buffer', // Output filename mask. Default value is 'buffer'.
-            verbosityLevel: 0 // Verbosity level. ERRORS: 0, WARNINGS: 1, INFOS: 5. Default value is 0.
-    });
-//     let pdfArray = await pdf2pic.convert(pdfPath, {
-//         width:1920,
-//         base64:false
-//     });
-
- 
-//   console.log("saving");
-//   let totalpages = pdfArray.length;
-// let maxpages = 10;
-// let count = 0;
-// while(totalpages>0)
-// {
-//     let myarr = []
-//     let i = 0;
-//     for (i = 0; i < Math.min(maxpages, totalpages); i++)
-//     {
-//         await fs.writeFile("./png/output"+i+".jpg", pdfArray[i], function (error) {
-//             if (error) { console.error("Error: " + error); }});
-
-//             let d = new Object();
-//             d.src = "./png/output"+i+".jpg";
-//             d.x=0;
-//             d.y=1080*i;
-//             myarr.push(d);
-
-//     }  
-//     totalpages = totalpages-i;
-//     console.log(myarr);
-    
-//     let base64Data = await mergeImages(myarr, {
-//         Canvas:Canvas,
-//         Image:Image,
-//         height:myarr.length*1080
-//     })
-
-//     const base64Image = base64Data.split(';base64,').pop();
-// // Write the  image buffer to a file
-// await fs.writeFile('out_'+count+'.png', base64Image, { encoding: 'base64' }, function(err) {
-//   if (err) throw err;
-//   console.log('The file has been saved!');
-// });
-  //im
-
-}
-  
-   
-
-   
-    // pdf2pic(pdfPath, {
-    //     format:'png',
-    //     prefix:"img",
-    //     outdir:"out"
-    // }).then(()=>console.log('conversion done'))
-    // .catch(err=>console.log(err));
-  
+let createddirectories = [];
  
 const firebaseapp = firebase.initializeApp(firebaseConfig);
 const myauth =auth.getAuth(firebaseapp);
 
 const mystorage = storage.getStorage(firebaseapp);
-app.use(bodyParser.json())
+app.use(bodyParser.json());
 
 const getDetails = async(idtoken)=>{
     let r; 
@@ -172,7 +107,6 @@ app.post("/auth", async (req, res) =>{
     if(response[0]===null)
     {
         res.status(404);
-  
         res.end("Did not find user");
     }
     else{
@@ -217,6 +151,33 @@ app.post("/filelist", async (req, res)=>{
 });
 
 
+async function convertPDFtoPNG(pdfPath) {
+    return pdf.pdfToPng(pdfPath,{
+          
+              disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
+              useSystemFonts: false, // When `true`, fonts that aren't embedded in the PDF document will fallback to a system font. Default value is false.
+              viewportScale: 1.0, // The desired scale of PNG viewport. Default value is 1.0.
+               outputFolder: pdfPath.split('/myfile.pdf')[0], // Folder to write output PNG files. If not specified, PNG output will be available only as a Buffer content, without saving to a file.
+              outputFileMask: 'buffer', // Output filename mask. Default value is 'buffer'.
+              verbosityLevel: 0 // Verbosity level. ERRORS: 0, WARNINGS: 1, INFOS: 5. Default value is 0.
+      });
+  }
+  function deleteDirectory(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+      return;
+    }
+  
+    fs.readdirSync(dirPath).forEach((file) => {
+      const curPath = path.join(dirPath, file);
+      if (fs.lstatSync(curPath).isDirectory()) {
+        deleteDirectory(curPath);
+      } else {
+        fs.unlinkSync(curPath);
+      }
+    });
+  
+    fs.rmdirSync(dirPath);
+  }
 app.post("/filedownload", async (req, res)=>{
     let file = req.body['file'];
     let idtoken = req.body['IdToken'];
@@ -227,25 +188,51 @@ app.post("/filedownload", async (req, res)=>{
     file = file.trim();
     const listref = storage.ref(mystorage, '/'+file);
     console.log(file);
+    let pat = file.split('.pdf')[0];
+    console.log(pat);
+    if(fs.existsSync("./"+pat))
+    {
+        console.log('file exists');
+    }
+    else
+    {  
+        let bytes = await storage.getBytes(listref)
+        createddirectories.push("."+pat);
+        fs.mkdirSync("."+pat, { recursive: true });
+        fs.writeFileSync("."+pat+"/myfile.pdf", Buffer.from(bytes), 'binary');
 
-    let bytes = await storage.getBytes(listref)
-   
- storage.getMetadata(listref).then(async metadata=> {
-            res.set("Content-Type", metadata.contentType);
+        const timeToDelete = 4*60*60*1000;
 
-            fs.writeFileSync("./"+metadata.name, Buffer.from(bytes), 'binary');
-           
-            res.status(200);
-            convertPDFtoPNG("./"+metadata.name);
-           // convertPDFtoPNG("./"+metadata.name,"./mypng.png");
-            res.end(Buffer.from(bytes));
-            }
-    ).catch(err=>{
-        res.status( 404);
-        res.end("error");
-    })
+        setTimeout(() => {
+        // Use the fs.rmdir() method to delete the directory
+        deleteDirectory("."+pat);
+        }, timeToDelete);
 
 
+        console.log("downloaded");
+        convertPDFtoPNG("."+pat+"/myfile.pdf");
+        console.log("converted");
+    }
+        res.set('Content-Type', 'application/json');
+        console.log(JSON.stringify("OK"));
+        res.end(JSON.stringify("OK"));
+});
+
+app.get("/image/:class/:filename/:id", async (req, res)=>{
+
+    let id = req.params.id;
+    console.log(id);
+    let pat = "/"+req.params.class+"/"+req.params.filename;
+    console.log(pat);
+
+    try {
+       console.log(pat+"/buffer_page_"+id+".png");
+       res.status(200);
+       res.sendFile(__dirname +pat+"/buffer_page_"+id+".png");
+    } catch (error) {
+        console.log(error);
+        res.end("File not existing");
+    }
 });
 
 
