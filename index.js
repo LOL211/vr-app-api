@@ -18,9 +18,6 @@ const firebaseConfig = {
     appId: "1:454382693464:web:a6a10292c3e508484dee2d"
   };
 
-
-
-
 let createddirectories = [];
  
 const firebaseapp = firebase.initializeApp(firebaseConfig);
@@ -197,20 +194,20 @@ app.post("/filedownload", async (req, res)=>{
     else
     {  
         let bytes = await storage.getBytes(listref)
-        createddirectories.push("."+pat);
-        fs.mkdirSync("."+pat, { recursive: true });
-        fs.writeFileSync("."+pat+"/myfile.pdf", Buffer.from(bytes), 'binary');
+        createddirectories.push("./"+pat);
+        fs.mkdirSync("./"+pat, { recursive: true });
+        fs.writeFileSync("./"+pat+"/myfile.pdf", Buffer.from(bytes), 'binary');
 
         const timeToDelete = 4*60*60*1000;
 
         setTimeout(() => {
         // Use the fs.rmdir() method to delete the directory
-        deleteDirectory("."+pat);
+        deleteDirectory("./"+pat);
         }, timeToDelete);
 
 
         console.log("downloaded");
-        convertPDFtoPNG("."+pat+"/myfile.pdf");
+        convertPDFtoPNG("./"+pat+"/myfile.pdf");
         console.log("converted");
     }
         res.set('Content-Type', 'application/json');
@@ -231,6 +228,7 @@ app.get("/image/:class/:filename/:id", async (req, res)=>{
        res.sendFile(__dirname +pat+"/buffer_page_"+id+".png");
     } catch (error) {
         console.log(error);
+        res.status(404);
         res.end("File not existing");
     }
 });
