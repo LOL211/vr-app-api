@@ -1,7 +1,7 @@
 FROM node:18-slim
 
 # the image comes with a node user:
-USER node
+USER nodee
 
 RUN mkdir -p /home/node/app
 WORKDIR /home/node/app
