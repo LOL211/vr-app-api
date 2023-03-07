@@ -56,19 +56,17 @@ const login = async (email, password) =>{
 
     let idtoken = null;
     let name = null;
-   await auth.signInWithEmailAndPassword(myauth, email,password).then(async response=>{
-    let user = response['user'];
+    await auth.signInWithEmailAndPassword(myauth, email,password).then(async response=>{
     
+    let user = response['user'];
     idtoken = await user.getIdToken();
-   name = await getDetails(idtoken);
-   
-   }).catch(
+    name = await getDetails(idtoken);
+    }).catch(
         err=>{
-           console.log("did not find user"); 
+           console.log("did not find userr "+err.code); 
+           
         }
     );
-   
-
   return [idtoken, name];
 }
 
@@ -98,26 +96,26 @@ const getToken = async(idtoken)=> {
   }
 
 
-app.post("/auth", async (req, res) =>{
-    let response =  await login(req.body["email"], req.body["password"]);
-
-    if(response[0]===null)
-    {
-        res.status(404);
-        res.end("Did not find user");
-    }
-    else{
+app.post("/auth", (req, res) =>{
+console.log("recieved request")
    
-        let obj = new Object();
-        obj.IdToken = response[0];
-        obj.CourseList = response[1];
-        obj.CourseList.courses = JSON.parse(obj.CourseList.courses);
-        console.log(JSON.stringify(obj));
-        res.status(200);
-      
-        res.end(JSON.stringify(obj));
-    }
-    
+   login(req.body["email"],req.body["password"]).then(response=>{
+      if(response[0]===null)
+      {
+        //console.log(req.body)
+          res.status(404);
+          res.end("Did not find user, "+req.body);
+      }
+      else{
+          let obj = new Object();
+          obj.IdToken = response[0];
+          obj.CourseList = response[1];
+          obj.CourseList.courses = JSON.parse(obj.CourseList.courses);
+          console.log("Found user");
+          res.status(200);
+          res.end(JSON.stringify(obj));
+      }
+   })
 });
 
 app.post("/filelist", async (req, res)=>{
@@ -149,7 +147,7 @@ app.post("/filelist", async (req, res)=>{
 
 
 async function convertPDFtoPNG(pdfPath) {
-    return pdf.pdfToPng(pdfPath,{
+   return pdf.pdfToPng(pdfPath,{
           
               disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
               useSystemFonts: false, // When `true`, fonts that aren't embedded in the PDF document will fallback to a system font. Default value is false.
@@ -159,6 +157,7 @@ async function convertPDFtoPNG(pdfPath) {
               verbosityLevel: 0 // Verbosity level. ERRORS: 0, WARNINGS: 1, INFOS: 5. Default value is 0.
       });
   }
+  
   function deleteDirectory(dirPath) {
     if (!fs.existsSync(dirPath)) {
       return;
@@ -170,6 +169,22 @@ async function convertPDFtoPNG(pdfPath) {
         deleteDirectory(curPath);
       } else {
         fs.unlinkSync(curPath);
+      }
+    });
+  
+    fs.rmdirSync(dirPath);
+  }
+
+
+  function deleteAllSubfiles(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+      return;
+    }
+  
+    fs.readdirSync(dirPath).forEach((file) => {
+      const curPath = path.join(dirPath, file);
+      if (fs.lstatSync(curPath).isDirectory() && !curPath.includes("node_modules")) {
+        deleteDirectory(curPath);
       }
     });
   
@@ -207,7 +222,11 @@ app.post("/filedownload", async (req, res)=>{
 
 
         console.log("downloaded");
-        convertPDFtoPNG("./"+pat+"/myfile.pdf");
+        convertPDFtoPNG("./"+pat+"/myfile.pdf").then((convert)=>{
+            
+            fs.unlinkSync("./"+pat+"/myfile.pdf");
+        });
+
         console.log("converted");
     }
         res.set('Content-Type', 'application/json');
@@ -233,8 +252,18 @@ app.get("/image/:class/:filename/:id", async (req, res)=>{
     }
 });
 
+app.get("/remove", async(req, res)=>
+{
+    try{
+        deleteAllSubfiles("./");
+    }
+    catch(err)
+    {
+        console.log(err);
+    }
 
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`App listening on port ${port}`)
 })
