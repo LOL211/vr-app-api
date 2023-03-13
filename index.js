@@ -26,6 +26,17 @@ const myauth =auth.getAuth(firebaseapp);
 const mystorage = storage.getStorage(firebaseapp);
 app.use(bodyParser.json());
 
+
+
+
+const readResponse = async (response)=>{
+  let td = new TextDecoder();
+  let rd = response['body'].getReader();
+  return td.decode((await rd.read()).value);
+}
+
+
+
 const getDetails = async(idtoken)=>{
     let r; 
     r = await fetch("https://vr-app.fly.dev/home",
@@ -39,17 +50,9 @@ const getDetails = async(idtoken)=>{
          body:JSON.stringify(
          {"requestType":"HOME",
              "idToken": idtoken
-         }
-         )
-     });
-   
-     let td = new TextDecoder();
-     let rd = r['body'].getReader();
-     let belongs =  td.decode((await rd.read()).value);
-   
-  
-    return JSON.parse(belongs);
-  
+         })
+        })
+        return JSON.parse(await readResponse(r));
 }
 
 const login = async (email, password) =>{
@@ -71,9 +74,8 @@ const login = async (email, password) =>{
 }
 
 const getToken = async(idtoken)=> {
-    let r; 
   
-   r = await fetch("https://vr-app.fly.dev/token",
+   let r = await fetch("https://vr-app.fly.dev/token",
     {
         method:"POST",
         headers: {
@@ -86,36 +88,31 @@ const getToken = async(idtoken)=> {
             "idToken": idtoken
         }
         )
-    });
-    let td = new TextDecoder();
-    let rd = r['body'].getReader();
-    let belongs =  td.decode((await rd.read()).value);
-  
-  
-   return belongs;
+    })
+    return await readResponse(r);
   }
 
 
 app.post("/auth", (req, res) =>{
-console.log("recieved request")
-   
-   login(req.body["email"],req.body["password"]).then(response=>{
-      if(response[0]===null)
-      {
-        //console.log(req.body)
-          res.status(404);
-          res.end("Did not find user, "+req.body);
-      }
-      else{
-          let obj = new Object();
-          obj.IdToken = response[0];
-          obj.CourseList = response[1];
-          obj.CourseList.courses = JSON.parse(obj.CourseList.courses);
-          console.log("Found user");
-          res.status(200);
-          res.end(JSON.stringify(obj));
-      }
-   })
+  console.log("recieved request")
+  
+  login(req.body["email"],req.body["password"]).then(response=>{
+        if(response[0]===null)
+        {
+          
+            res.status(404);
+            res.end("Did not find user, "+req.body);
+        }
+        else{
+            let obj = new Object();
+            obj.IdToken = response[0];
+            obj.CourseList = response[1];
+            obj.CourseList.courses = JSON.parse(obj.CourseList.courses);
+            console.log("Found user");
+            res.status(200);
+            res.end(JSON.stringify(obj));
+        }
+    })
 });
 
 app.post("/filelist", async (req, res)=>{
@@ -123,23 +120,28 @@ app.post("/filelist", async (req, res)=>{
     let idtoken = req.body['IdToken'];
     let t = await getToken(idtoken);
 
-    await auth.signInWithCustomToken(myauth, t).then(async ()=>{
+    auth.signInWithCustomToken(myauth, t).then(async ()=>{
         let list = []
-
         const listref = storage.ref(mystorage, '/'+classname);
-       
+
        await storage.listAll(listref).then(res=>{
             res.items.forEach((itemRef) => {
                 list.push(itemRef.name);
             });
+
         }).catch(err=>{ console.log(err)});
+
+
     res.set("Content-Type", 'application/json')  
     res.status(200);
+
     let obj = new Object();
     obj.list = list;
     res.end(JSON.stringify(obj));
-    }).catch(err=>{
+    
+  }).catch(err=>{
         res.status(404);
+        console.log(err)
         res.end("Invalid user");
     });
     
@@ -190,6 +192,8 @@ async function convertPDFtoPNG(pdfPath) {
   
     fs.rmdirSync(dirPath);
   }
+
+
 app.post("/filedownload", async (req, res)=>{
     let file = req.body['file'];
     let idtoken = req.body['IdToken'];
@@ -198,33 +202,34 @@ app.post("/filedownload", async (req, res)=>{
 
     await auth.signInWithCustomToken(myauth, t);
     file = file.trim();
+
     const listref = storage.ref(mystorage, '/'+file);
     console.log(file);
-    let pat = file.split('.pdf')[0];
-    console.log(pat);
-    if(fs.existsSync("./"+pat))
+    
+    let filePath = file.split('.pdf')[0];
+    console.log(filePath);
+    
+    if(fs.existsSync("./"+filePath))
     {
         console.log('file exists');
     }
     else
     {  
         let bytes = await storage.getBytes(listref)
-        createddirectories.push("./"+pat);
-        fs.mkdirSync("./"+pat, { recursive: true });
-        fs.writeFileSync("./"+pat+"/myfile.pdf", Buffer.from(bytes), 'binary');
+        createddirectories.push("./"+filePath);
+        fs.mkdirSync("./"+filePath, { recursive: true });
+        fs.writeFileSync("./"+filePath+"/myfile.pdf", Buffer.from(bytes), 'binary');
 
         const timeToDelete = 4*60*60*1000;
 
         setTimeout(() => {
-        // Use the fs.rmdir() method to delete the directory
-        deleteDirectory("./"+pat);
+        deleteDirectory("./"+filePath);
         }, timeToDelete);
 
 
         console.log("downloaded");
-        convertPDFtoPNG("./"+pat+"/myfile.pdf").then((convert)=>{
-            
-            fs.unlinkSync("./"+pat+"/myfile.pdf");
+        convertPDFtoPNG("./"+filePath+"/myfile.pdf").then((convert)=>{
+            fs.unlinkSync("./"+filePath+"/myfile.pdf");
         });
 
         console.log("converted");
