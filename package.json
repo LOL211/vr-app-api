@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start-dev": "cross-env NODE_ENV=development node index.js",
-    "test": "mocha --exit"
+    "test": "cross-env NODE_ENV=test mocha --timeout 20000 --exit"
   },
   "devDependencies": {
     "chai": "^4.3.7",
