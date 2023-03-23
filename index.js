@@ -92,7 +92,6 @@ const getToken = async(idtoken)=> {
     return await readResponse(r);
   }
 
-
 app.post("/auth", (req, res) =>{
   console.log("recieved request")
   
@@ -101,9 +100,10 @@ app.post("/auth", (req, res) =>{
         {
           
             res.status(404);
-            res.end("Did not find user, "+req.body);
+            res.end("Did not find user or improper credentials");
         }
         else{
+            res.setHeader("Content-Type", "application/json")
             let obj = new Object();
             obj.IdToken = response[0];
             obj.CourseList = response[1];
@@ -112,25 +112,42 @@ app.post("/auth", (req, res) =>{
             res.status(200);
             res.end(JSON.stringify(obj));
         }
+    }).catch((err)=>{
+      res.status(404);
+      res.end("Did not find user or improper credentials");
     })
 });
 
 app.post("/filelist", async (req, res)=>{
-    let classname = req.body['class'];
-    let idtoken = req.body['IdToken'];
-    let t = await getToken(idtoken);
+  let classname; 
+  let idtoken;
+  
+  try{
+      classname = req.body['class'];
+      idtoken = req.body['IdToken'];
+      if(classname ==undefined || idtoken==undefined)
+        throw new Error("bad format")
+   }
+   
+   catch (err) { 
+    console.log('error')
+    res.status(404);
+    res.end("Invalid format");
+    return;
+   }
 
+   let t = await getToken(idtoken);
     auth.signInWithCustomToken(myauth, t).then(async ()=>{
         let list = []
         const listref = storage.ref(mystorage, '/'+classname);
-
+        
        await storage.listAll(listref).then(res=>{
             res.items.forEach((itemRef) => {
                 list.push(itemRef.name);
             });
 
         }).catch(err=>{ console.log(err)});
-
+      
 
     res.set("Content-Type", 'application/json')  
     res.status(200);
@@ -141,14 +158,14 @@ app.post("/filelist", async (req, res)=>{
     
   }).catch(err=>{
         res.status(404);
-        console.log(err)
+
         res.end("Invalid user");
     });
     
 });
 
 
-async function convertPDFtoPNG(pdfPath) {
+const convertPDFtoPNG = (pdfPath)=> {
    return pdf.pdfToPng(pdfPath,{
           
               disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
@@ -195,65 +212,106 @@ async function convertPDFtoPNG(pdfPath) {
 
 
 app.post("/filedownload", async (req, res)=>{
-    let file = req.body['file'];
-    let idtoken = req.body['IdToken'];
+  let file
+  let idtoken
+    
+  try{
+      file= req.body['file'];
+      idtoken= req.body['IdToken'];
+      if(file== undefined || idtoken==undefined)
+        throw new Error("Invalid format")
+    } catch (err) {
+
+      res.status(404).end("Invalid format")
+    }
+   
     
     let t = await getToken(idtoken);
 
-    await auth.signInWithCustomToken(myauth, t);
-    file = file.trim();
+    auth.signInWithCustomToken(myauth, t).then( async (user)=>{
+      
+      try{
+        file = file.trim();
 
-    const listref = storage.ref(mystorage, '/'+file);
-    console.log(file);
+        const listref = storage.ref(mystorage, '/'+file);
+        console.log("File is "+file)
+  
+       // console.log(file);
+        
+        let filePath = file.split('.pdf')[0];
+       // console.log(filePath);
+        
+  
+        //console.log(listref)
+  
+  
+        storage.getDownloadURL(listref)
+        
+  
+  
+        if(fs.existsSync("./"+filePath))
+        {
+            console.log('file exists');
+        }
+        else
+        {  
+       
+            
+            let bytes = await storage.getBytes(listref)
+            
+          
+            createddirectories.push("./"+filePath);
+            fs.mkdirSync("./"+filePath, { recursive: true });
+            fs.writeFileSync("./"+filePath+"/myfile.pdf", Buffer.from(bytes), 'binary');
     
-    let filePath = file.split('.pdf')[0];
-    console.log(filePath);
+            const timeToDelete = 4*60*60*1000;
     
-    if(fs.existsSync("./"+filePath))
-    {
-        console.log('file exists');
-    }
-    else
-    {  
-        let bytes = await storage.getBytes(listref)
-        createddirectories.push("./"+filePath);
-        fs.mkdirSync("./"+filePath, { recursive: true });
-        fs.writeFileSync("./"+filePath+"/myfile.pdf", Buffer.from(bytes), 'binary');
+            setTimeout(() => {
+            deleteDirectory("./"+filePath);
+            }, timeToDelete);
+    
+    
+            console.log("downloaded");
+            
+            convertPDFtoPNG("./"+filePath+"/myfile.pdf").then((convert)=>{
+                fs.unlinkSync("./"+filePath+"/myfile.pdf");
+            });
+           
+            console.log("converted");
+        }
+    
+        res.end("OK");
+      }
+      catch(err) {
+        console.log(err)
+        res.status(404).end("File not found")
+      }
+    }).catch((err)=>{
+      console.log(err)
+      res.status(404).end("Invalid user")
+    });
 
-        const timeToDelete = 4*60*60*1000;
-
-        setTimeout(() => {
-        deleteDirectory("./"+filePath);
-        }, timeToDelete);
-
-
-        console.log("downloaded");
-        convertPDFtoPNG("./"+filePath+"/myfile.pdf").then((convert)=>{
-            fs.unlinkSync("./"+filePath+"/myfile.pdf");
-        });
-
-        console.log("converted");
-    }
-        res.set('Content-Type', 'application/json');
-        console.log(JSON.stringify("OK"));
-        res.end(JSON.stringify("OK"));
+ 
 });
 
 app.get("/image/:class/:filename/:id", async (req, res)=>{
 
     let id = req.params.id;
-    console.log(id);
+    // console.log(id);
     let pat = "/"+req.params.class+"/"+req.params.filename;
-    console.log(pat);
+    // console.log(pat);
 
-    try {
-       console.log(pat+"/buffer_page_"+id+".png");
+   if(fs.existsSync(__dirname +pat+"/buffer_page_"+id+".png")){
+      console.log("file found")
        res.status(200);
        res.sendFile(__dirname +pat+"/buffer_page_"+id+".png");
-    } catch (error) {
-        console.log(error);
-        res.status(404);
-        res.end("File not existing");
+    } 
+    else {
+
+        console.log("file not found")
+        
+        
+        res.status(404).end("File not existing");
     }
 });
 
@@ -269,6 +327,9 @@ app.get("/remove", async(req, res)=>
 
 });
 
-app.listen(port, () => {
+let server = app.listen(port, () => {
   console.log(`App listening on port ${port}`)
 })
+
+
+module.exports = server
