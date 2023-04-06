@@ -174,12 +174,9 @@ it('Test teacher ',  (done)=>{
         .end((err, res)=>{
           console.log(res.body.list)
             mylist = [
-                '5_-_Computing_Architectures_for_VR.pdf',
-                'EE4221_L1_Cloud_Concepts_Overview_(1).pdf',
-                'hw1.pdf',
-                'test_01.pdf',
-                'test_02.pdf',
-                'test_03.pdf'
+                "5_-_Computing_Architectures_for_VR.pdf",
+                "EE4221_L1_Cloud_Concepts_Overview_(1).pdf",
+                "vr_(3).pdf"
               ]
             let valid = true
     
@@ -212,12 +209,9 @@ it('Test student ',  (done)=>{
         .end((err, res)=>{
           console.log(res.body.list)
             mylist = [
-                '5_-_Computing_Architectures_for_VR.pdf',
-                'EE4221_L1_Cloud_Concepts_Overview_(1).pdf',
-                'hw1.pdf',
-                'test_01.pdf',
-                'test_02.pdf',
-                'test_03.pdf'
+                "5_-_Computing_Architectures_for_VR.pdf",
+                "EE4221_L1_Cloud_Concepts_Overview_(1).pdf",
+                "vr_(3).pdf"
               ]
             let valid = true
     
@@ -321,7 +315,7 @@ it("Test valid path student", (done)=>{
         .post('/filedownload')
         .set("Content-type","application/json")
         .send({
-          "file":"CS2204/test_01.pdf",
+          "file":"CS2204/5_-_Computing_Architectures_for_VR.pdf",
           "IdToken":idtoken
         })
         .end((err, res)=>{
@@ -465,12 +459,12 @@ describe("Test image requests", ()=>{
     it("Download valid image", (done)=>{
       
         chai.request(server)
-        .get('/image/CS2204/test_01/1')
+        .get('/image/CS2204/5_-_Computing_Architectures_for_VR/1')
         .end(async (err, res)=>{
             console.log(res.body);
             // let test =  fs.existsSync("")
             // console.log(test)
-            let b = fs.readFileSync("CS2204/test_01/buffer_page_1.png")
+            let b = fs.readFileSync("CS2204/5_-_Computing_Architectures_for_VR/buffer_page_1.png")
             console.log(b)
             expect(b.compare(res.body)).equal(0)
             done();
